@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>雲端圖片縮放服務</title>
     <style>
+        /* 原本的樣式保持不變 */
         body {
             font-family: 'Segoe UI', sans-serif;
             display: flex;
@@ -66,10 +67,64 @@
             border-radius: 5px;
             display: none;
         }
+
+        /* --- 新增：Toast 通知的 CSS 樣式 --- */
+        #toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .toast {
+            min-width: 250px;
+            background-color: #333;
+            color: #fff;
+            padding: 16px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            font-size: 14px;
+            opacity: 0;
+            transform: translateX(100%);
+            transition: all 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+            /* 彈跳效果 */
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        /* 顯示時的狀態 */
+        .toast.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        /* 不同類型的顏色 */
+        .toast.success {
+            background-color: #10b981;
+            /* 綠色 */
+        }
+
+        .toast.error {
+            background-color: #ef4444;
+            /* 紅色 */
+        }
+
+        .toast.warning {
+            background-color: #f59e0b;
+            /* 黃色 */
+        }
     </style>
 </head>
 
 <body>
+
+    <!-- 這是放通知的容器 -->
+    <div id="toast-container"></div>
 
     <div class="card">
         <h1>☁️ 圖片上傳壓縮</h1>
@@ -88,6 +143,39 @@
         // ⚠️ 這裡貼上你剛剛建立的「服務生 Lambda」的 Function URL
         const API_URL = "https://hbr53bjfhlbo45ngrlkpjqab4a0wjeao.lambda-url.us-east-1.on.aws/";
 
+        // --- 新增：顯示 Toast 通知的函式 ---
+        function showToast(message, type = 'default') {
+            const container = document.getElementById('toast-container');
+
+            // 建立元素
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerText = message;
+
+            // 加入容器
+            container.appendChild(toast);
+
+            // 觸發動畫 (使用 setTimeout 確保 DOM 已加入)
+            setTimeout(() => {
+                toast.classList.add('show');
+            }, 10);
+
+            // 定義移除函式
+            const removeToast = () => {
+                toast.classList.remove('show');
+                // 等待動畫結束後移除元素
+                setTimeout(() => {
+                    if (toast.parentElement) toast.remove();
+                }, 500);
+            };
+
+            // 設定自動關閉 (5秒)
+            setTimeout(removeToast, 5000);
+
+            // 點擊立即關閉
+            toast.onclick = removeToast;
+        }
+
         function previewImage() {
             const file = document.getElementById('fileInput').files[0];
             const preview = document.getElementById('preview');
@@ -103,7 +191,8 @@
             const btn = document.getElementById('uploadBtn');
 
             if (fileInput.files.length === 0) {
-                alert("請先選擇圖片！");
+                // ❌ 替換原本的 alert
+                showToast("請先選擇圖片！", "warning");
                 return;
             }
 
@@ -131,7 +220,9 @@
                     if (response.ok) {
                         status.innerText = "✅ 上傳成功！系統正在背景縮圖。";
                         status.style.color = "green";
-                        alert("成功！請稍後至 S3 Output Bucket 查看結果。");
+
+                        // ✅ 替換原本的 alert，並設為成功樣式
+                        showToast("上傳成功！請稍後至 S3 Output Bucket 查看結果。", "success");
                     } else {
                         throw new Error("上傳失敗");
                     }
@@ -139,6 +230,9 @@
                     console.error(error);
                     status.innerText = "❌ 發生錯誤";
                     status.style.color = "red";
+
+                    // ❌ 替換原本的 alert，並設為錯誤樣式
+                    showToast("發生錯誤，請檢查 Lambda 日誌。", "error");
                 } finally {
                     btn.disabled = false;
                 }
