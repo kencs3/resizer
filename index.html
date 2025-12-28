@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>雲端圖片縮放服務</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 50px;
+            background-color: #f0f2f5;
+        }
+
+        .card {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+
+        input[type="file"] {
+            margin-bottom: 20px;
+        }
+
+        button {
+            background-color: #0070f3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: 0.3s;
+        }
+
+        button:hover {
+            background-color: #0051a2;
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        #status {
+            margin-top: 20px;
+            font-weight: bold;
+        }
+
+        .preview {
+            max-width: 100%;
+            margin-top: 20px;
+            border-radius: 5px;
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="card">
+        <h1>☁️ 圖片上傳壓縮</h1>
+        <p>上傳後，AWS 會自動產生三種尺寸</p>
+
+        <input type="file" id="fileInput" accept="image/*" onchange="previewImage()">
+        <br>
+        <img id="preview" class="preview" src="" alt="預覽圖">
+        <br><br>
+        <button id="uploadBtn" onclick="uploadImage()">開始上傳</button>
+
+        <p id="status"></p>
+    </div>
+
+    <script>
+        // ⚠️ 這裡貼上你剛剛建立的「服務生 Lambda」的 Function URL
+        const API_URL = "https://hbr53bjfhlbo45ngrlkpjqab4a0wjeao.lambda-url.us-east-1.on.aws/";
+
+        function previewImage() {
+            const file = document.getElementById('fileInput').files[0];
+            const preview = document.getElementById('preview');
+            if (file) {
+                preview.src = URL.createObjectURL(file);
+                preview.style.display = 'block';
+            }
+        }
+
+        async function uploadImage() {
+            const fileInput = document.getElementById('fileInput');
+            const status = document.getElementById('status');
+            const btn = document.getElementById('uploadBtn');
+
+            if (fileInput.files.length === 0) {
+                alert("請先選擇圖片！");
+                return;
+            }
+
+            const file = fileInput.files[0];
+            status.innerText = "⏳ 正在上傳並處理中...";
+            status.style.color = "blue";
+            btn.disabled = true;
+
+            const reader = new FileReader();
+            reader.readAsDataURL(file); // 轉成 Base64
+
+            reader.onload = async function () {
+                const base64Image = reader.result;
+
+                try {
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            fileName: file.name,
+                            image: base64Image
+                        })
+                    });
+
+                    if (response.ok) {
+                        status.innerText = "✅ 上傳成功！系統正在背景縮圖。";
+                        status.style.color = "green";
+                        alert("成功！請稍後至 S3 Output Bucket 查看結果。");
+                    } else {
+                        throw new Error("上傳失敗");
+                    }
+                } catch (error) {
+                    console.error(error);
+                    status.innerText = "❌ 發生錯誤";
+                    status.style.color = "red";
+                } finally {
+                    btn.disabled = false;
+                }
+            };
+        }
+    </script>
+</body>
+
+</html>
