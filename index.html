@@ -6,7 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>雲端圖片縮放服務</title>
     <style>
-        /* 原本的樣式保持不變 */
         body {
             font-family: 'Segoe UI', sans-serif;
             display: flex;
@@ -14,22 +13,39 @@
             align-items: center;
             padding: 50px;
             background-color: #f0f2f5;
+            /* #f0f2f5 */
         }
 
         .card {
-            background: white;
+            background: #ffffff;
             padding: 40px;
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             text-align: center;
             width: 100%;
             max-width: 400px;
+            margin-top: -30px;
         }
 
-        h1 {
+        .title {
             color: #333;
             margin-bottom: 20px;
             font-size: 24px;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .title-icon {
+            width: 32px;
+            height: 32px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        p {
+            color: #555;
         }
 
         input[type="file"] {
@@ -37,7 +53,7 @@
         }
 
         button {
-            background-color: #0070f3;
+            background-color: #447ec0;
             color: white;
             border: none;
             padding: 10px 20px;
@@ -48,13 +64,37 @@
         }
 
         button:hover {
-            background-color: #0051a2;
+            background-color: #366493;
         }
 
         button:disabled {
             background-color: #ccc;
             cursor: not-allowed;
         }
+
+        .file-upload {
+            border: 2px dashed #447ec0;
+            border-radius: 8px;
+            padding: 16px;
+            cursor: pointer;
+            color: #447ec0;
+            font-weight: 500;
+            transition: 0.3s;
+            background-color: #f7faff;
+            width: 90%;
+        }
+
+        .file-upload:hover {
+            background-color: #e9f1ff;
+            border-color: #366493;
+            color: #366493;
+        }
+
+        .file-upload.selected {
+            border-style: solid;
+            background-color: #eef6ff;
+        }
+
 
         #status {
             margin-top: 20px;
@@ -68,7 +108,6 @@
             display: none;
         }
 
-        /* --- 新增：Toast 通知的 CSS 樣式 --- */
         #toast-container {
             position: fixed;
             top: 20px;
@@ -97,26 +136,21 @@
             justify-content: space-between;
         }
 
-        /* 顯示時的狀態 */
         .toast.show {
             opacity: 1;
             transform: translateX(0);
         }
 
-        /* 不同類型的顏色 */
         .toast.success {
-            background-color: #10b981;
-            /* 綠色 */
+            background-color: #2ea980;
         }
 
         .toast.error {
-            background-color: #ef4444;
-            /* 紅色 */
+            background-color: #d24747;
         }
 
         .toast.warning {
-            background-color: #f59e0b;
-            /* 黃色 */
+            background-color: #e6c90a;
         }
     </style>
 </head>
@@ -127,52 +161,57 @@
     <div id="toast-container"></div>
 
     <div class="card">
-        <h1>☁️ 圖片上傳壓縮</h1>
-        <p>上傳後，AWS 會自動產生三種尺寸</p>
+        <h1 class="title">
+            <span class="title-icon" aria-hidden="true">
+                <svg xmlns="http://www.w3.org/2000/svg" height="28px" viewBox="0 -960 960 960" width="28px"
+                    fill="currentColor">
+                    <path
+                        d="M440-160H260q-91 0-155.5-63T40-377q0-78 47-139t123-78q25-92 100-149t170-57q117 0 198.5 81.5T760-520q69 8 114.5 59.5T920-340q0 75-52.5 127.5T740-160H520v-286l64 62 56-56-160-160-160 160 56 56 64-62v286Z" />
+                </svg>
+            </span>
+            圖片上傳壓縮
+        </h1>
 
-        <input type="file" id="fileInput" accept="image/*" onchange="previewImage()">
-        <br>
+        <p>上傳後，AWS會自動產生三種尺寸</p>
+
+        <input type="file" id="fileInput" accept="image/*" hidden onchange="previewImage()">
+
+        <div class="file-upload" onclick="document.getElementById('fileInput').click()">
+            <span id="fileText">選擇圖片</span>
+        </div> <br>
         <img id="preview" class="preview" src="" alt="預覽圖">
         <br><br>
         <button id="uploadBtn" onclick="uploadImage()">開始上傳</button>
 
         <p id="status"></p>
+
     </div>
 
     <script>
-        // ⚠️ 這裡貼上你剛剛建立的「服務生 Lambda」的 Function URL
         const API_URL = "https://hbr53bjfhlbo45ngrlkpjqab4a0wjeao.lambda-url.us-east-1.on.aws/";
 
         // --- 新增：顯示 Toast 通知的函式 ---
         function showToast(message, type = 'default') {
             const container = document.getElementById('toast-container');
 
-            // 建立元素
             const toast = document.createElement('div');
             toast.className = `toast ${type}`;
             toast.innerText = message;
 
-            // 加入容器
             container.appendChild(toast);
 
-            // 觸發動畫 (使用 setTimeout 確保 DOM 已加入)
             setTimeout(() => {
                 toast.classList.add('show');
             }, 10);
 
-            // 定義移除函式
             const removeToast = () => {
                 toast.classList.remove('show');
-                // 等待動畫結束後移除元素
                 setTimeout(() => {
                     if (toast.parentElement) toast.remove();
                 }, 500);
             };
 
-            // 設定自動關閉 (5秒)
             setTimeout(removeToast, 5000);
-
-            // 點擊立即關閉
             toast.onclick = removeToast;
         }
 
@@ -191,7 +230,6 @@
             const btn = document.getElementById('uploadBtn');
 
             if (fileInput.files.length === 0) {
-                // ❌ 替換原本的 alert
                 showToast("請先選擇圖片！", "warning");
                 return;
             }
@@ -218,20 +256,18 @@
                     });
 
                     if (response.ok) {
-                        status.innerText = "✅ 上傳成功！系統正在背景縮圖。";
+                        status.innerText = "上傳成功！系統正在背景縮圖。";
                         status.style.color = "green";
 
-                        // ✅ 替換原本的 alert，並設為成功樣式
                         showToast("上傳成功！請稍後至 S3 Output Bucket 查看結果。", "success");
                     } else {
                         throw new Error("上傳失敗");
                     }
                 } catch (error) {
                     console.error(error);
-                    status.innerText = "❌ 發生錯誤";
+                    status.innerText = "發生錯誤";
                     status.style.color = "red";
 
-                    // ❌ 替換原本的 alert，並設為錯誤樣式
                     showToast("發生錯誤，請檢查 Lambda 日誌。", "error");
                 } finally {
                     btn.disabled = false;
